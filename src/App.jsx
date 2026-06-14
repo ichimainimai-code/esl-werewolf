@@ -59,6 +59,50 @@ const TEXT = {
 // --- PRESET AVATARS ---
 const AVATARS = ['🧑','👱','🧔','👩','👱‍♀️','👴','👲','🧕','👨‍🦱','👩‍🦰','🧛','🧙','🧚','🧝','🧞','🧟','🤴','👸','💂','🕵️'];
 
+// --- RENDER HELPERS (Moved outside App to fix cursor bug) ---
+const ScrollContainer = ({ children, phase, lang, setLang }) => {
+  const isDay = phase === 'MORNING_TRANSITION' || phase === 'DAY_REVEAL' || phase === 'DAY_DEBATE' || phase === 'DAY_VOTE' || phase === 'VOTE_RESULT';
+  const bgClass = isDay ? "bg-amber-100" : "bg-stone-950";
+  
+  return (
+    <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden font-serif transition-colors duration-700`}>
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes flicker {
+          0%, 100% { opacity: 0.3; transform: scale(1) translate(0px, 0px); }
+          33% { opacity: 0.8; transform: scale(1.1) translate(20px, -20px); }
+          66% { opacity: 0.4; transform: scale(0.95) translate(-20px, 10px); }
+        }
+        @keyframes flicker-fast {
+          0% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 0.9; transform: scale(1.05); }
+          100% { opacity: 0.5; transform: scale(0.95); }
+        }
+        .animate-flicker { animation: flicker 3s ease-in-out infinite alternate; }
+        .animate-flicker-fast { animation: flicker-fast 0.3s ease-in-out infinite alternate; }
+      `}} />
+      
+      {!isDay && (
+        <>
+          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-orange-500/60 rounded-full blur-[80px] animate-flicker pointer-events-none"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-yellow-500/50 rounded-full blur-[100px] animate-flicker-fast pointer-events-none" style={{ animationDelay: '0.5s' }}></div>
+        </>
+      )}
+      {isDay && (
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-yellow-400/40 rounded-full blur-[100px] pointer-events-none"></div>
+      )}
+
+      <div className="bg-[#f4e4bc] w-full max-w-2xl min-h-[85vh] p-6 md:p-10 rounded-sm shadow-[inset_0_0_40px_rgba(139,69,19,0.3),0_15px_40px_rgba(0,0,0,0.6)] relative z-10 border-4 border-[#d4c49c] flex flex-col">
+         {phase !== 'VICTORY' && phase !== 'NIGHT_PASS' && (
+           <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="absolute -top-4 -right-4 w-16 h-16 bg-red-800 rounded-full shadow-lg flex items-center justify-center text-white font-bold border-2 border-red-950 transform transition hover:scale-105 z-50">
+             {lang === 'en' ? 'EN' : 'JP'}
+           </button>
+         )}
+         {children}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   // --- STATE ---
   const [gameState, setGameState] = useState('TUTORIAL'); 
@@ -286,51 +330,6 @@ export default function App() {
     }
   };
 
-  // --- RENDER HELPERS ---
-  const ScrollContainer = ({ children, phase }) => {
-    const isDay = phase === 'MORNING_TRANSITION' || phase === 'DAY_REVEAL' || phase === 'DAY_DEBATE' || phase === 'DAY_VOTE' || phase === 'VOTE_RESULT';
-    const bgClass = isDay ? "bg-amber-100" : "bg-stone-950";
-    
-    return (
-      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4 relative overflow-hidden font-serif transition-colors duration-700`}>
-        {/* Inject CSS Animations explicitly with movement to make it obvious */}
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes flicker {
-            0%, 100% { opacity: 0.3; transform: scale(1) translate(0px, 0px); }
-            33% { opacity: 0.8; transform: scale(1.1) translate(20px, -20px); }
-            66% { opacity: 0.4; transform: scale(0.95) translate(-20px, 10px); }
-          }
-          @keyframes flicker-fast {
-            0% { opacity: 0.4; transform: scale(1); }
-            50% { opacity: 0.9; transform: scale(1.05); }
-            100% { opacity: 0.5; transform: scale(0.95); }
-          }
-          .animate-flicker { animation: flicker 3s ease-in-out infinite alternate; }
-          .animate-flicker-fast { animation: flicker-fast 0.3s ease-in-out infinite alternate; }
-        `}} />
-        
-        {!isDay && (
-          <>
-            <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-orange-500/60 rounded-full blur-[80px] animate-flicker pointer-events-none"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-yellow-500/50 rounded-full blur-[100px] animate-flicker-fast pointer-events-none" style={{ animationDelay: '0.5s' }}></div>
-          </>
-        )}
-        {isDay && (
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-yellow-400/40 rounded-full blur-[100px] pointer-events-none"></div>
-        )}
-
-        <div className="bg-[#f4e4bc] w-full max-w-2xl min-h-[85vh] p-6 md:p-10 rounded-sm shadow-[inset_0_0_40px_rgba(139,69,19,0.3),0_15px_40px_rgba(0,0,0,0.6)] relative z-10 border-4 border-[#d4c49c] flex flex-col">
-           {phase !== 'VICTORY' && phase !== 'NIGHT_PASS' && (
-             <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="absolute -top-4 -right-4 w-16 h-16 bg-red-800 rounded-full shadow-lg flex items-center justify-center text-white font-bold border-2 border-red-950 transform transition hover:scale-105 z-50">
-               {lang === 'en' ? 'EN' : 'JP'}
-             </button>
-           )}
-           {children}
-        </div>
-      </div>
-    );
-  };
-
   const renderDashboard = () => {
     if (!showDashboard) return null;
     return (
@@ -404,7 +403,7 @@ export default function App() {
     };
 
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full max-h-full">
           <h1 className="text-4xl md:text-5xl font-bold text-center mb-6 tracking-widest border-b-2 border-stone-400 pb-4 w-full flex-shrink-0">{t('tutorial_title')}</h1>
           
@@ -448,7 +447,7 @@ export default function App() {
 
   if (gameState === 'SETUP') {
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         {renderDashboard()}
         <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
           <h1 className="text-4xl font-bold mb-8 text-center border-b-2 border-stone-400 pb-4">{t('setup_title')}</h1>
@@ -513,7 +512,7 @@ export default function App() {
 
   if (gameState === 'NIGHT_PASS') {
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         {renderDashboard()}
         <div className="flex-1 flex flex-col items-center justify-center text-stone-900 text-center" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
           <Moon size={64} className="text-stone-700 mb-8 opacity-60" />
@@ -625,7 +624,7 @@ export default function App() {
     }
 
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full">
           <div className="w-full text-center mb-6 pb-4 border-b-2 border-stone-400">
             <h1 className="text-3xl font-bold uppercase tracking-widest">{roleTitle}</h1>
@@ -647,7 +646,7 @@ export default function App() {
 
   if (gameState === 'MORNING_TRANSITION') {
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
           <Sun size={80} className="text-amber-500 mb-6 animate-[spin_20s_linear_infinite]" />
           <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('morning_title')}</h1>
@@ -662,7 +661,7 @@ export default function App() {
 
   if (gameState === 'DAY_REVEAL') {
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
           <Sun size={80} className="text-amber-600 mb-6 animate-[spin_20s_linear_infinite]" />
           <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('day_phase')}</h1>
@@ -696,7 +695,7 @@ export default function App() {
   if (gameState === 'DAY_DEBATE') {
     const alivePlayers = players.filter(p => p.isAlive);
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         {renderDashboard()}
         <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
           <h1 className="text-3xl font-bold text-center mb-6 border-b-2 border-stone-400 pb-4">{t('debate_title')}</h1>
@@ -740,7 +739,7 @@ export default function App() {
   if (gameState === 'DAY_VOTE') {
     const alivePlayers = players.filter(p => p.isAlive);
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex flex-col h-full text-stone-900">
           <h1 className="text-3xl font-bold text-center mb-2">{t('vote_prompt')}</h1>
           <p className="text-center text-stone-500 mb-6 italic">Discuss as a group, then log the final decision here.</p>
@@ -774,7 +773,7 @@ export default function App() {
   if (gameState === 'VOTE_RESULT') {
     const isWolf = lastKilled && lastKilled.role === 'werewolf';
     return (
-      <ScrollContainer phase={gameState}>
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
         <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
           <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('vote_result_title')}</h1>
           
@@ -804,42 +803,65 @@ export default function App() {
   }
 
   if (gameState === 'VICTORY') {
+    const isVillagerWin = winner === 'VILLAGERS';
+    
     return (
-      <ScrollContainer phase="VICTORY">
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          {winner === 'VILLAGERS' ? (
+      <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-serif ${isVillagerWin ? 'bg-sky-200' : 'bg-stone-950'}`}>
+        
+        {/* Dynamic Backgrounds */}
+        {isVillagerWin ? (
+          <div className="absolute inset-0 pointer-events-none">
+             <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-300 rounded-full blur-[10px] shadow-[0_0_100px_rgba(253,224,71,1)]"></div>
+             <div className="absolute bottom-0 w-full h-1/3 bg-green-500/30 blur-[50px]"></div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+             <div className="absolute top-20 w-64 h-64 bg-red-700 rounded-full blur-[20px] shadow-[0_0_150px_rgba(185,28,28,0.8)] animate-pulse"></div>
+             <div className="absolute bottom-0 w-full h-1/2 bg-black"></div>
+          </div>
+        )}
+
+        {/* Victory Card */}
+        <div className={`relative z-10 w-full max-w-2xl p-8 md:p-12 rounded-xl shadow-2xl flex flex-col items-center text-center border-4 ${isVillagerWin ? 'bg-white/90 border-yellow-400 text-stone-900' : 'bg-black/80 border-red-900 text-white'}`}>
+          
+          {isVillagerWin ? (
             <>
-              <Shield size={80} className="text-green-700 mx-auto mb-6" />
-              <h1 className="text-5xl font-extrabold text-green-900 mb-4 tracking-tight">VILLAGE SAVED!</h1>
-              <p className="text-2xl text-stone-700 font-bold mb-8">The Werewolves have been defeated.</p>
+              <Sun size={100} className="text-yellow-500 mb-6 animate-[spin_20s_linear_infinite]" />
+              <h1 className="text-5xl md:text-6xl font-extrabold text-green-700 mb-4 tracking-tight drop-shadow-sm">VILLAGE SAVED!</h1>
+              <p className="text-2xl font-bold mb-8 text-stone-600">The beautiful summer day has arrived.</p>
               <div className="flex justify-center gap-4 flex-wrap mb-8">
                  {players.filter(p => p.role !== 'werewolf').map(p => (
-                   <span key={p.id} className="text-4xl" title={p.name}>{p.avatar}</span>
+                   <span key={p.id} className="text-5xl drop-shadow-md" title={p.name}>{p.avatar}</span>
                  ))}
               </div>
             </>
           ) : (
             <>
-              <Skull size={80} className="text-red-900 mx-auto mb-6" />
-              <h1 className="text-5xl font-extrabold text-red-900 mb-4 tracking-widest">ETERNAL NIGHT</h1>
-              <p className="text-2xl text-stone-700 font-bold mb-8">The Werewolves have taken over the village.</p>
-              <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-900/10 p-6 rounded border border-red-900/30">
-                 <span className="text-red-900 font-bold w-full mb-3 uppercase tracking-widest">The Wolves were:</span>
+              <div className="relative mb-6">
+                <Moon size={120} className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,1)]" />
+                <div className="absolute inset-0 flex items-center justify-center translate-y-4">
+                  <span className="text-6xl grayscale contrast-200 brightness-0 drop-shadow-lg">🐺</span>
+                </div>
+              </div>
+              <h1 className="text-5xl md:text-6xl font-extrabold text-red-600 mb-4 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">ETERNAL NIGHT</h1>
+              <p className="text-2xl font-bold mb-8 text-stone-400">The wolves rule the shadows.</p>
+              <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-950/40 p-6 rounded-xl border border-red-900/50 w-full">
+                 <span className="text-red-500 font-bold w-full mb-4 uppercase tracking-widest text-sm">The Wolf Pack:</span>
                  {players.filter(p => p.role === 'werewolf').map(p => (
                    <div key={p.id} className="flex flex-col items-center">
-                      <span className="text-5xl">{p.avatar}</span>
-                      <span className="text-stone-900 font-bold mt-2">{p.name}</span>
+                      <span className="text-6xl drop-shadow-lg">{p.avatar}</span>
+                      <span className="text-stone-300 font-bold mt-3 text-lg">{p.name}</span>
                    </div>
                  ))}
               </div>
             </>
           )}
 
-          <button onClick={() => { setPlayers([]); setOverrideWolfCount(0); setGameState('SETUP'); }} className="px-12 py-5 bg-stone-900 text-[#f4e4bc] font-bold rounded shadow-lg hover:bg-stone-800 transition text-xl mt-8">
+          <button onClick={() => { setPlayers([]); setOverrideWolfCount(0); setGameState('SETUP'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
             Play Again
           </button>
         </div>
-      </ScrollContainer>
+      </div>
     );
   }
 
