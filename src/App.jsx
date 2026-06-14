@@ -112,7 +112,7 @@ export default function App() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
-  const [selectedTab, setSelectedTab] = useState('Roster'); // Added for multiple classes
+  const [selectedTab, setSelectedTab] = useState('Roster'); 
   
   // Game Loop State
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -513,7 +513,7 @@ export default function App() {
           <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
             <h1 className="text-4xl font-bold mb-8 text-center border-b-2 border-stone-400 pb-4">{t('setup_title')}</h1>
             
-            {/* New Class Selector and Load Button */}
+            {/* Class Selector and Load Button */}
             <div className="flex gap-2 mb-6 w-full">
               <select 
                 value={selectedTab} 
