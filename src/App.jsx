@@ -54,7 +54,8 @@ const TEXT = {
   tut_phase_day: { en: "Day Phase: Discuss in English to find the Werewolves, then vote to eliminate one suspect.", jp: "昼のフェーズ：英語で議論し、怪しい人に投票して追放します。" },
   tut_win_title: { en: "How to Win", jp: "勝利条件" },
   tut_win_villagers: { en: "Villagers Win: Eliminate all Werewolves.", jp: "村人陣営の勝利：すべての人狼を追放する。" },
-  tut_win_werewolves: { en: "Werewolves Win: Survive until Werewolves equal the number of Villagers.", jp: "人狼陣営の勝利：生存数が村人と同じ数になる。" }
+  tut_win_werewolves: { en: "Werewolves Win: Survive until Werewolves equal the number of Villagers.", jp: "人狼陣営の勝利：生存数が村人と同じ数になる。" },
+  load_roster: { en: "Load Class Roster", jp: "クラス名簿を読み込む" }
 };
 
 // --- PRESET AVATARS ---
@@ -381,6 +382,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+            <p className="text-xs text-stone-500 mt-2 italic">Auto adjusts wolves based on player count. Manual role assignments below will override this if they exceed the target.</p>
           </div>
         )}
 
@@ -886,62 +888,64 @@ export default function App() {
       const isVillagerWin = winner === 'VILLAGERS';
       
       return (
-        <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-serif ${isVillagerWin ? 'bg-sky-200' : 'bg-stone-950'}`}>
-          
-          {/* Dynamic Backgrounds */}
-          {isVillagerWin ? (
-            <div className="absolute inset-0 pointer-events-none">
-               <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-300 rounded-full blur-[10px] shadow-[0_0_100px_rgba(253,224,71,1)]"></div>
-               <div className="absolute bottom-0 w-full h-1/3 bg-green-500/30 blur-[50px]"></div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-               <div className="absolute top-20 w-64 h-64 bg-red-700 rounded-full blur-[20px] shadow-[0_0_150px_rgba(185,28,28,0.8)] animate-pulse"></div>
-               <div className="absolute bottom-0 w-full h-1/2 bg-black"></div>
-            </div>
-          )}
-
-          {/* Victory Card */}
-          <div className={`relative z-10 w-full max-w-2xl p-8 md:p-12 rounded-xl shadow-2xl flex flex-col items-center text-center border-4 ${isVillagerWin ? 'bg-white/90 border-yellow-400 text-stone-900' : 'bg-black/80 border-red-900 text-white'}`}>
+        <ScrollContainer phase="VICTORY" lang={lang} setLang={setLang}>
+          <div className={`absolute inset-0 flex items-center justify-center p-4 relative overflow-hidden font-serif ${isVillagerWin ? 'bg-sky-200' : 'bg-stone-950'}`}>
             
+            {/* Dynamic Backgrounds */}
             {isVillagerWin ? (
-              <>
-                <Sun size={100} className="text-yellow-500 mb-6 animate-[spin_20s_linear_infinite]" />
-                <h1 className="text-5xl md:text-6xl font-extrabold text-green-700 mb-4 tracking-tight drop-shadow-sm">VILLAGE SAVED!</h1>
-                <p className="text-2xl font-bold mb-8 text-stone-600">The beautiful summer day has arrived.</p>
-                <div className="flex justify-center gap-4 flex-wrap mb-8">
-                   {players.filter(p => p.role !== 'werewolf').map(p => (
-                     <span key={p.id} className="text-5xl drop-shadow-md" title={p.name}>{p.avatar}</span>
-                   ))}
-                </div>
-              </>
+              <div className="absolute inset-0 pointer-events-none">
+                 <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-300 rounded-full blur-[10px] shadow-[0_0_100px_rgba(253,224,71,1)]"></div>
+                 <div className="absolute bottom-0 w-full h-1/3 bg-green-500/30 blur-[50px]"></div>
+              </div>
             ) : (
-              <>
-                <div className="relative mb-6">
-                  <Moon size={120} className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,1)]" />
-                  <div className="absolute inset-0 flex items-center justify-center translate-y-4">
-                    <span className="text-6xl grayscale contrast-200 brightness-0 drop-shadow-lg">🐺</span>
-                  </div>
-                </div>
-                <h1 className="text-5xl md:text-6xl font-extrabold text-red-600 mb-4 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">ETERNAL NIGHT</h1>
-                <p className="text-2xl font-bold mb-8 text-stone-400">The wolves rule the shadows.</p>
-                <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-950/40 p-6 rounded-xl border border-red-900/50 w-full">
-                   <span className="text-red-500 font-bold w-full mb-4 uppercase tracking-widest text-sm">The Wolf Pack:</span>
-                   {players.filter(p => p.role === 'werewolf').map(p => (
-                     <div key={p.id} className="flex flex-col items-center">
-                        <span className="text-6xl drop-shadow-lg">{p.avatar}</span>
-                        <span className="text-stone-300 font-bold mt-3 text-lg">{p.name}</span>
-                     </div>
-                   ))}
-                </div>
-              </>
+              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                 <div className="absolute top-20 w-64 h-64 bg-red-700 rounded-full blur-[20px] shadow-[0_0_150px_rgba(185,28,28,0.8)] animate-pulse"></div>
+                 <div className="absolute bottom-0 w-full h-1/2 bg-black"></div>
+              </div>
             )}
 
-            <button onClick={() => { playSound('HOWL'); setPlayers([]); setOverrideWolfCount(0); setGameState('TITLE'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
-              Play Again
-            </button>
+            {/* Victory Card */}
+            <div className={`relative z-10 w-full max-w-2xl p-8 md:p-12 rounded-xl shadow-2xl flex flex-col items-center text-center border-4 ${isVillagerWin ? 'bg-white/90 border-yellow-400 text-stone-900' : 'bg-black/80 border-red-900 text-white'}`}>
+              
+              {isVillagerWin ? (
+                <>
+                  <Sun size={100} className="text-yellow-500 mb-6 animate-[spin_20s_linear_infinite]" />
+                  <h1 className="text-5xl md:text-6xl font-extrabold text-green-700 mb-4 tracking-tight drop-shadow-sm">VILLAGE SAVED!</h1>
+                  <p className="text-2xl font-bold mb-8 text-stone-600">The beautiful summer day has arrived.</p>
+                  <div className="flex justify-center gap-4 flex-wrap mb-8">
+                     {players.filter(p => p.role !== 'werewolf').map(p => (
+                       <span key={p.id} className="text-5xl drop-shadow-md" title={p.name}>{p.avatar}</span>
+                     ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="relative mb-6">
+                    <Moon size={120} className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,1)]" />
+                    <div className="absolute inset-0 flex items-center justify-center translate-y-4">
+                      <span className="text-6xl grayscale contrast-200 brightness-0 drop-shadow-lg">🐺</span>
+                    </div>
+                  </div>
+                  <h1 className="text-5xl md:text-6xl font-extrabold text-red-600 mb-4 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">ETERNAL NIGHT</h1>
+                  <p className="text-2xl font-bold mb-8 text-stone-400">The wolves rule the shadows.</p>
+                  <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-950/40 p-6 rounded-xl border border-red-900/50 w-full">
+                     <span className="text-red-500 font-bold w-full mb-4 uppercase tracking-widest text-sm">The Wolf Pack:</span>
+                     {players.filter(p => p.role === 'werewolf').map(p => (
+                       <div key={p.id} className="flex flex-col items-center">
+                          <span className="text-6xl drop-shadow-lg">{p.avatar}</span>
+                          <span className="text-stone-300 font-bold mt-3 text-lg">{p.name}</span>
+                       </div>
+                     ))}
+                  </div>
+                </>
+              )}
+
+              <button onClick={() => { playSound('HOWL'); setPlayers([]); setOverrideWolfCount(0); setGameState('TITLE'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
+                Play Again
+              </button>
+            </div>
           </div>
-        </div>
+        </ScrollContainer>
       );
     }
 
