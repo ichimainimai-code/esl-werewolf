@@ -107,7 +107,7 @@ const ScrollContainer = ({ children, phase, lang, setLang }) => {
 
 export default function App() {
   // --- STATE ---
-  const [gameState, setGameState] = useState('TITLE'); 
+  const [gameState, setGameState] = useState('INIT'); 
   const [lang, setLang] = useState('en');
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -125,22 +125,27 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [overrideWolfCount, setOverrideWolfCount] = useState(0);
   const pressTimer = useRef(null);
+  
+  // --- AUDIO REFS ---
+  const howlAudioRef = useRef(null);
+  const fanfareAudioRef = useRef(null);
 
   // --- SOUND EFFECTS ---
-  useEffect(() => {
-    if (gameState === 'VICTORY') {
-      const soundUrl = winner === 'VILLAGERS' 
-        ? "https://actions.google.com/sounds/v1/cartoon/cartoon_success_fanfare.ogg" 
-        : "https://actions.google.com/sounds/v1/animals/wolf_howl.ogg";
-      const audio = new Audio(soundUrl);
-      audio.volume = 0.7; // 70% volume
-      audio.play().catch(e => console.log("Audio prevented by browser:", e));
-    } else if (gameState === 'TITLE') {
-      const audio = new Audio("https://actions.google.com/sounds/v1/animals/wolf_howl.ogg");
-      audio.volume = 0.5; // 50% volume for the spooky intro
-      audio.play().catch(e => console.log("Audio prevented by browser:", e));
+  const playSound = (type) => {
+    try {
+      if (type === 'VILLAGERS' && fanfareAudioRef.current) {
+        fanfareAudioRef.current.currentTime = 0;
+        fanfareAudioRef.current.volume = 0.6;
+        fanfareAudioRef.current.play();
+      } else if ((type === 'WEREWOLVES' || type === 'HOWL') && howlAudioRef.current) {
+        howlAudioRef.current.currentTime = 0;
+        howlAudioRef.current.volume = 0.5;
+        howlAudioRef.current.play();
+      }
+    } catch (e) {
+      console.log("Audio prevented by browser:", e);
     }
-  }, [gameState, winner]);
+  };
 
   // --- HELPER FUNCTIONS ---
   const t = (key) => TEXT[key][lang] || TEXT[key]['en'];
@@ -326,10 +331,12 @@ export default function App() {
     if (aliveWolves === 0) {
       setWinner('VILLAGERS');
       logGameResult('VILLAGERS', currentPlayers); 
+      playSound('VILLAGERS');
       setGameState('VICTORY');
     } else if (aliveWolves >= aliveVillagers) {
       setWinner('WEREWOLVES');
       logGameResult('WEREWOLVES', currentPlayers); 
+      playSound('WEREWOLVES');
       setGameState('VICTORY');
     } else {
       if (nextState === 'NIGHT_TRANSITION') {
@@ -417,6 +424,19 @@ export default function App() {
   };
 
   // --- RENDER BLOCKS ---
+  const renderContent = () => {
+
+  if (gameState === 'INIT') {
+    return (
+      <div 
+        onClick={() => { playSound('HOWL'); setGameState('TITLE'); }} 
+        className="min-h-screen bg-black flex flex-col items-center justify-center text-stone-500 font-serif cursor-pointer"
+      >
+        <Moon size={60} className="mb-6 opacity-30 animate-pulse" />
+        <p className="text-2xl tracking-widest uppercase animate-pulse">Tap to Start</p>
+      </div>
+    );
+  }
 
   if (gameState === 'TITLE') {
     return (
@@ -900,7 +920,7 @@ export default function App() {
             </>
           )}
 
-          <button onClick={() => { setPlayers([]); setOverrideWolfCount(0); setGameState('SETUP'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
+          <button onClick={() => { playSound('HOWL'); setPlayers([]); setOverrideWolfCount(0); setGameState('TITLE'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
             Play Again
           </button>
         </div>
@@ -909,4 +929,14 @@ export default function App() {
   }
 
   return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+  }; // End of renderContent()
+
+  // Main Return wrapped with hidden audio elements
+  return (
+    <>
+      <audio ref={howlAudioRef} src="https://www.myinstants.com/media/sounds/wolf-howling.mp3" preload="auto" />
+      <audio ref={fanfareAudioRef} src="https://www.myinstants.com/media/sounds/ta-da.mp3" preload="auto" />
+      {renderContent()}
+    </>
+  );
 }
