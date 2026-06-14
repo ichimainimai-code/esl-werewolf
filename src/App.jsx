@@ -611,6 +611,7 @@ export default function App() {
       const alivePlayers = players.filter(p => p.isAlive && p.id !== currentPlayer.id);
       let actionUI = null;
       let roleTitle = '';
+      let requiredTargetCount = 1; // Enforce exact number of selections
 
       if (currentPlayer.role === 'villager') {
         roleTitle = t('role_villager');
@@ -654,6 +655,7 @@ export default function App() {
         
         const isFinal = maxSelections <= 1;
         const promptText = isFinal ? t('wolf_prompt_final') : t('wolf_prompt_dyn').replace('{n}', maxSelections);
+        requiredTargetCount = maxSelections; // Wolves must select exactly this many
 
         actionUI = (
           <div className="w-full">
@@ -683,7 +685,10 @@ export default function App() {
             <h2 className="text-2xl font-bold mb-6 text-center text-indigo-900">{t('seer_prompt')}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {alivePlayers.map(p => (
-                <button key={p.id} onClick={() => handleTargetToggle(p.id, 1)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-indigo-900 text-[#f4e4bc] border-indigo-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400'}`}>
+                <button key={p.id} onClick={() => {
+                  if (selectedTargets.length > 0) return; // Permanently lock selection upon first click
+                  handleTargetToggle(p.id, 1);
+                }} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-indigo-900 text-[#f4e4bc] border-indigo-950 shadow-inner' : (selectedTargets.length > 0 ? 'bg-stone-300 border-stone-400 opacity-50 cursor-not-allowed' : 'bg-[#fcf5e3] border-stone-400')}`}>
                   <span className="text-4xl">{p.avatar}</span>
                   <span className="font-bold">{p.name}</span>
                   {selectedTargets.includes(p.id) && (
@@ -708,7 +713,7 @@ export default function App() {
               {actionUI}
             </div>
             <div className="h-20 w-full flex items-center justify-center mt-6">
-              {selectedTargets.length > 0 && (
+              {selectedTargets.length === requiredTargetCount && (
                 <button onClick={nextNightTurn} className="w-full md:w-auto px-12 py-4 bg-stone-900 text-[#f4e4bc] text-xl font-bold rounded shadow-lg flex justify-center items-center gap-2 hover:bg-stone-800">
                   {t('next')} <Check size={24} />
                 </button>
