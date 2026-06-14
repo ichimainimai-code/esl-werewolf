@@ -7,6 +7,8 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzK2Alv6Yuz5N7pYIhOV
 // --- BILINGUAL DICTIONARY ---
 const TEXT = {
   tutorial_title: { en: "The Village", jp: "村" },
+  subtitle: { en: "Can you survive the night in The Village?", jp: "あなたはこの村で夜を生き延びることができるか？" },
+  enter: { en: "Enter", jp: "入村する" },
   tutorial_1: { en: "Welcome to the village. By day, you are peaceful citizens practicing your English.", jp: "村へようこそ。昼間、あなたたちは英語を練習する平和な市民です。" },
   tutorial_2: { en: "But at night, the Werewolves awaken. They will secretly eliminate one player.", jp: "しかし夜になると、人狼が目覚めます。彼らは密かに一人のプレイヤーを排除します。" },
   tutorial_3: { en: "During the day, you must debate in English to find the Werewolves and vote them out. Good luck.", jp: "昼間は英語で議論し、人狼を見つけ出して投票で追放しなければなりません。幸運を。" },
@@ -92,7 +94,7 @@ const ScrollContainer = ({ children, phase, lang, setLang }) => {
       )}
 
       <div className="bg-[#f4e4bc] w-full max-w-2xl min-h-[85vh] p-6 md:p-10 rounded-sm shadow-[inset_0_0_40px_rgba(139,69,19,0.3),0_15px_40px_rgba(0,0,0,0.6)] relative z-10 border-4 border-[#d4c49c] flex flex-col">
-         {phase !== 'VICTORY' && phase !== 'NIGHT_PASS' && (
+         {phase !== 'VICTORY' && phase !== 'TITLE' && phase !== 'NIGHT_PASS' && (
            <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="absolute -top-4 -right-4 w-16 h-16 bg-red-800 rounded-full shadow-lg flex items-center justify-center text-white font-bold border-2 border-red-950 transform transition hover:scale-105 z-50">
              {lang === 'en' ? 'EN' : 'JP'}
            </button>
@@ -105,7 +107,7 @@ const ScrollContainer = ({ children, phase, lang, setLang }) => {
 
 export default function App() {
   // --- STATE ---
-  const [gameState, setGameState] = useState('TUTORIAL'); 
+  const [gameState, setGameState] = useState('TITLE'); 
   const [lang, setLang] = useState('en');
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -245,15 +247,18 @@ export default function App() {
   const nextNightTurn = () => {
     const currentPlayer = players[currentPlayerIndex];
     
+    // FIX: Capture the exact actions right now so they aren't lost in the transition
+    let updatedActions = { ...nightActions };
+    
     if (selectedTargets.length > 0) {
       if (currentPlayer.role === 'werewolf') {
-        setNightActions(prev => ({ 
-          ...prev, 
-          wolfNominations: selectedTargets,
-          finalWolfTarget: selectedTargets.length === 1 ? selectedTargets[0] : null
-        }));
+        updatedActions.wolfNominations = selectedTargets;
+        updatedActions.finalWolfTarget = selectedTargets.length === 1 ? selectedTargets[0] : null;
       }
-      if (currentPlayer.role === 'seer') setNightActions(prev => ({ ...prev, seerCheck: selectedTargets[0] }));
+      if (currentPlayer.role === 'seer') {
+        updatedActions.seerCheck = selectedTargets[0];
+      }
+      setNightActions(updatedActions); // Save to state
     }
     
     setSelectedTargets([]);
@@ -264,15 +269,16 @@ export default function App() {
     }
 
     if (nextIndex >= players.length) {
-      processNightEnd();
+      processNightEnd(updatedActions); // Manually hand over the actions!
     } else {
       setCurrentPlayerIndex(nextIndex);
       setGameState('NIGHT_PASS');
     }
   };
 
-  const processNightEnd = () => {
-    let killedId = nightActions.finalWolfTarget || (nightActions.wolfNominations.length > 0 ? nightActions.wolfNominations[0] : null);
+  const processNightEnd = (finalNightActions = nightActions) => {
+    // FIX: Read from the safely handed-over actions instead of the stale memory
+    let killedId = finalNightActions.finalWolfTarget || (finalNightActions.wolfNominations.length > 0 ? finalNightActions.wolfNominations[0] : null);
     let updatedPlayers = [...players];
     
     if (killedId) {
@@ -395,6 +401,27 @@ export default function App() {
   };
 
   // --- RENDER BLOCKS ---
+
+  if (gameState === 'TITLE') {
+    return (
+      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+        <div className="flex-1 flex flex-col items-center justify-center text-stone-900 w-full h-full text-center">
+          <Moon size={80} className="text-stone-800 mb-6 opacity-80" />
+          <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-widest drop-shadow-sm uppercase">{t('tutorial_title')}</h1>
+          <p className="text-xl md:text-2xl font-bold mb-16 text-red-900 italic max-w-md leading-relaxed">
+            "{t('subtitle')}"
+          </p>
+          <button onClick={() => setGameState('TUTORIAL')} className="mt-4 px-12 py-5 bg-red-900 text-[#f4e4bc] text-2xl md:text-3xl font-bold rounded shadow-lg hover:bg-red-800 transition flex items-center justify-center gap-2 w-full md:w-auto">
+            {t('enter')} <ChevronRight size={32} />
+          </button>
+          
+          <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="mt-12 text-stone-500 font-bold hover:text-stone-800 transition underline decoration-2 underline-offset-4">
+            {lang === 'en' ? '日本語でプレイする' : 'Play in English'}
+          </button>
+        </div>
+      </ScrollContainer>
+    );
+  }
 
   if (gameState === 'TUTORIAL') {
     const renderSplit = (text) => {
