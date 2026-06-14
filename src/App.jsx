@@ -54,14 +54,13 @@ const TEXT = {
   tut_phase_day: { en: "Day Phase: Discuss in English to find the Werewolves, then vote to eliminate one suspect.", jp: "昼のフェーズ：英語で議論し、怪しい人に投票して追放します。" },
   tut_win_title: { en: "How to Win", jp: "勝利条件" },
   tut_win_villagers: { en: "Villagers Win: Eliminate all Werewolves.", jp: "村人陣営の勝利：すべての人狼を追放する。" },
-  tut_win_werewolves: { en: "Werewolves Win: Survive until Werewolves equal the number of Villagers.", jp: "人狼陣営の勝利：生存数が村人と同じ数になる。" },
-  load_roster: { en: "Load Class Roster", jp: "クラス名簿を読み込む" }
+  tut_win_werewolves: { en: "Werewolves Win: Survive until Werewolves equal the number of Villagers.", jp: "人狼陣営の勝利：生存数が村人と同じ数になる。" }
 };
 
 // --- PRESET AVATARS ---
 const AVATARS = ['🧑','👱','🧔','👩','👱‍♀️','👴','👲','🧕','👨‍🦱','👩‍🦰','🧛','🧙','🧚','🧝','🧞','🧟','🤴','👸','💂','🕵️'];
 
-// --- RENDER HELPERS (Moved outside App to fix cursor bug) ---
+// --- RENDER HELPERS ---
 const ScrollContainer = ({ children, phase, lang, setLang }) => {
   const isDay = phase === 'MORNING_TRANSITION' || phase === 'DAY_REVEAL' || phase === 'DAY_DEBATE' || phase === 'DAY_VOTE' || phase === 'VOTE_RESULT';
   const bgClass = isDay ? "bg-amber-100" : "bg-stone-950";
@@ -113,6 +112,7 @@ export default function App() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+  const [selectedTab, setSelectedTab] = useState('Roster'); // Added for multiple classes
   
   // Game Loop State
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
@@ -125,7 +125,7 @@ export default function App() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [overrideWolfCount, setOverrideWolfCount] = useState(0);
   const pressTimer = useRef(null);
-  
+
   // --- AUDIO REFS ---
   const howlAudioRef = useRef(null);
   const fanfareAudioRef = useRef(null);
@@ -163,7 +163,7 @@ export default function App() {
     
     setIsLoadingRoster(true);
     try {
-      const response = await fetch(SCRIPT_URL);
+      const response = await fetch(`${SCRIPT_URL}?tab=${encodeURIComponent(selectedTab)}`);
       const result = await response.json();
       
       if (result.status === 'success') {
@@ -175,6 +175,8 @@ export default function App() {
           isAlive: true
         }));
         setPlayers([...players, ...rosterPlayers]);
+      } else {
+        alert("Server Error: " + result.message);
       }
     } catch (error) {
       console.error("Failed to load roster:", error);
@@ -267,8 +269,6 @@ export default function App() {
 
   const nextNightTurn = () => {
     const currentPlayer = players[currentPlayerIndex];
-    
-    // FIX: Capture the exact actions right now so they aren't lost in the transition
     let updatedActions = { ...nightActions };
     
     if (selectedTargets.length > 0) {
@@ -279,7 +279,7 @@ export default function App() {
       if (currentPlayer.role === 'seer') {
         updatedActions.seerCheck = selectedTargets[0];
       }
-      setNightActions(updatedActions); // Save to state
+      setNightActions(updatedActions);
     }
     
     setSelectedTargets([]);
@@ -290,7 +290,7 @@ export default function App() {
     }
 
     if (nextIndex >= players.length) {
-      processNightEnd(updatedActions); // Manually hand over the actions!
+      processNightEnd(updatedActions);
     } else {
       setCurrentPlayerIndex(nextIndex);
       setGameState('NIGHT_PASS');
@@ -298,7 +298,6 @@ export default function App() {
   };
 
   const processNightEnd = (finalNightActions = nightActions) => {
-    // FIX: Read from the safely handed-over actions instead of the stale memory
     let killedId = finalNightActions.finalWolfTarget || (finalNightActions.wolfNominations.length > 0 ? finalNightActions.wolfNominations[0] : null);
     let updatedPlayers = [...players];
     
@@ -382,7 +381,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <p className="text-xs text-stone-500 mt-2 italic">Auto adjusts wolves based on player count. Manual role assignments below will override this if they exceed the target.</p>
           </div>
         )}
 
@@ -426,512 +424,525 @@ export default function App() {
   // --- RENDER BLOCKS ---
   const renderContent = () => {
 
-  if (gameState === 'INIT') {
-    return (
-      <div 
-        onClick={() => { playSound('HOWL'); setGameState('TITLE'); }} 
-        className="min-h-screen bg-black flex flex-col items-center justify-center text-stone-500 font-serif cursor-pointer"
-      >
-        <Moon size={60} className="mb-6 opacity-30 animate-pulse" />
-        <p className="text-2xl tracking-widest uppercase animate-pulse">Tap to Start</p>
-      </div>
-    );
-  }
-
-  if (gameState === 'TITLE') {
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center justify-center text-stone-900 w-full h-full text-center">
-          <Moon size={80} className="text-stone-800 mb-6 opacity-80" />
-          <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-widest drop-shadow-sm uppercase">{t('tutorial_title')}</h1>
-          <p className="text-xl md:text-2xl font-bold mb-16 text-red-900 italic max-w-md leading-relaxed">
-            "{t('subtitle')}"
-          </p>
-          <button onClick={() => setGameState('TUTORIAL')} className="mt-4 px-12 py-5 bg-red-900 text-[#f4e4bc] text-2xl md:text-3xl font-bold rounded shadow-lg hover:bg-red-800 transition flex items-center justify-center gap-2 w-full md:w-auto">
-            {t('enter')} <ChevronRight size={32} />
-          </button>
-          
-          <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="mt-12 text-stone-500 font-bold hover:text-stone-800 transition underline decoration-2 underline-offset-4">
-            {lang === 'en' ? '日本語でプレイする' : 'Play in English'}
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  if (gameState === 'TUTORIAL') {
-    const renderSplit = (text) => {
-      const parts = text.split(/:\s|：/);
-      return parts.length > 1 ? <><strong className="font-bold text-stone-900">{parts[0]}: </strong>{parts[1]}</> : text;
-    };
-
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full max-h-full">
-          <h1 className="text-4xl md:text-5xl font-bold text-center mb-6 tracking-widest border-b-2 border-stone-400 pb-4 w-full flex-shrink-0">{t('tutorial_title')}</h1>
-          
-          <div className="space-y-6 text-base md:text-lg leading-relaxed text-left font-medium w-full max-w-lg overflow-y-auto pr-2 pb-4 hide-scrollbar flex-1">
-            <p className="text-center italic text-stone-700 bg-stone-800/5 p-3 rounded border border-stone-400/20">{t('tutorial_1')}</p>
-            
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_roles_title')}</h2>
-              <ul className="space-y-3">
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🧑</span> <span>{renderSplit(t('tut_role_villager'))}</span></li>
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🐺</span> <span>{renderSplit(t('tut_role_werewolf'))}</span></li>
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🔮</span> <span>{renderSplit(t('tut_role_seer'))}</span></li>
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">👁️</span> <span>{renderSplit(t('tut_role_watchman'))}</span></li>
-              </ul>
-            </div>
-
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_phases_title')}</h2>
-              <ul className="space-y-3">
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🌙</span> <span>{renderSplit(t('tut_phase_night'))}</span></li>
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">☀️</span> <span>{renderSplit(t('tut_phase_day'))}</span></li>
-              </ul>
-            </div>
-
-            <div>
-              <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_win_title')}</h2>
-              <ul className="space-y-3">
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🛡️</span> <span>{renderSplit(t('tut_win_villagers'))}</span></li>
-                <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🐺</span> <span>{renderSplit(t('tut_win_werewolves'))}</span></li>
-              </ul>
-            </div>
-          </div>
-          
-          <button onClick={() => setGameState('SETUP')} className="mt-6 w-full max-w-sm py-4 bg-stone-800 text-[#f4e4bc] text-xl md:text-2xl font-bold rounded shadow-lg hover:bg-stone-700 transition flex items-center justify-center gap-2 flex-shrink-0">
-            {t('enter_village')} <ChevronRight />
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  if (gameState === 'SETUP') {
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        {renderDashboard()}
-        <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
-          <h1 className="text-4xl font-bold mb-8 text-center border-b-2 border-stone-400 pb-4">{t('setup_title')}</h1>
-          
-          <button 
-            onClick={fetchRoster}
-            disabled={isLoadingRoster}
-            className="mb-6 w-full py-3 bg-indigo-900 text-[#f4e4bc] text-lg font-bold rounded shadow flex items-center justify-center gap-2 hover:bg-indigo-800 disabled:bg-stone-500 transition"
-          >
-            {isLoadingRoster ? <Loader2 className="animate-spin" /> : <Download />}
-            {isLoadingRoster ? "Loading..." : t('load_roster')}
-          </button>
-
-          <div className="mb-4 bg-stone-800/10 p-3 rounded-xl border border-stone-400/30 overflow-x-auto whitespace-nowrap hide-scrollbar flex gap-2">
-             {AVATARS.map(avatar => (
-               <button 
-                 key={avatar} 
-                 onClick={() => setSelectedAvatar(avatar)}
-                 className={`text-4xl p-2 rounded-lg transition-all ${selectedAvatar === avatar ? 'bg-stone-800 scale-110 shadow-md' : 'hover:bg-stone-800/20 opacity-70'}`}
-               >
-                 {avatar}
-               </button>
-             ))}
-          </div>
-
-          <form onSubmit={addPlayer} className="flex gap-2 mb-8">
-            <div className="bg-stone-800 text-white text-3xl px-4 py-2 rounded flex items-center justify-center border-2 border-stone-800">{selectedAvatar}</div>
-            <input 
-              type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)}
-              placeholder="Student Name..."
-              className="flex-1 p-4 text-xl border-2 border-stone-800 rounded bg-[#fcf5e3] focus:outline-none focus:ring-2 focus:ring-stone-500 font-sans"
-            />
-            <button type="submit" className="px-6 bg-stone-800 text-[#f4e4bc] font-bold rounded text-2xl hover:bg-stone-700">+</button>
-          </form>
-
-          <div className="flex-1 overflow-y-auto mb-8 pr-2">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {players.map((p) => (
-                <div key={p.id} className="bg-[#fcf5e3] p-3 rounded shadow-sm border border-stone-400 flex items-center gap-3">
-                  <span className="text-3xl">{p.avatar}</span>
-                  <span className="font-bold text-lg">{p.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {players.length >= 4 ? (
-            <button onClick={assignRoles} className="w-full py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg hover:bg-red-800 transition">
-              {t('start_game')} ({players.length} Players)
-            </button>
-          ) : (
-            <div className="text-center text-stone-600 text-lg font-bold border-2 border-dashed border-stone-400 py-5 rounded">
-              Need at least 4 players (Recommend 6+)
-            </div>
-          )}
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  const currentPlayer = players[currentPlayerIndex];
-
-  if (gameState === 'NIGHT_PASS') {
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        {renderDashboard()}
-        <div className="flex-1 flex flex-col items-center justify-center text-stone-900 text-center" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
-          <Moon size={64} className="text-stone-700 mb-8 opacity-60" />
-          <h2 className="text-2xl text-stone-600 mb-2 font-bold uppercase tracking-widest">{t('night_phase')}</h2>
-          <h1 className="text-4xl md:text-5xl font-bold mb-12 leading-tight">
-            {t('pass_device')} <br/><br/>
-            <span className="bg-stone-800 text-[#f4e4bc] px-6 py-3 rounded-lg inline-flex items-center gap-4">
-              <span className="text-5xl">{currentPlayer.avatar}</span>
-              {currentPlayer.name}
-            </span>
-          </h1>
-          <button onClick={() => setGameState('NIGHT_ACTION')} className="px-12 py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg transition hover:bg-red-800">
-            {t('im_ready')}
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  if (gameState === 'NIGHT_ACTION') {
-    const alivePlayers = players.filter(p => p.isAlive && p.id !== currentPlayer.id);
-    let actionUI = null;
-    let roleTitle = '';
-
-    if (currentPlayer.role === 'villager') {
-      roleTitle = t('role_villager');
-      actionUI = (
-        <div className="space-y-4 w-full">
-          <h2 className="text-2xl font-bold mb-6 text-center">{t('decoy_prompt')}</h2>
-          {[t('decoy_1'), t('decoy_2'), t('decoy_3')].map((task, i) => (
-            <button key={i} onClick={() => handleTargetToggle(`done_${i}`)} className={`w-full p-4 rounded text-xl font-bold border-2 transition ${selectedTargets.includes(`done_${i}`) ? 'bg-stone-800 text-[#f4e4bc] border-stone-900' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
-              {task}
-            </button>
-          ))}
-        </div>
-      );
-    } else if (currentPlayer.role === 'watchman') {
-      roleTitle = t('role_watchman');
-      actionUI = (
-        <div className="text-center w-full">
-          <Eye size={64} className="mx-auto text-stone-800 mb-6" />
-          <h2 className="text-2xl font-bold mb-8 leading-relaxed">{t('watchman_prompt')}</h2>
-          <button onClick={() => handleTargetToggle('done')} className={`w-full p-4 rounded text-xl font-bold border-2 transition ${selectedTargets.includes('done') ? 'bg-stone-800 text-[#f4e4bc] border-stone-900' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
-            I have observed
-          </button>
-        </div>
-      );
-    } else if (currentPlayer.role === 'werewolf') {
-      roleTitle = t('role_werewolf');
-      const aliveWolves = players.filter(p => p.role === 'werewolf' && p.isAlive);
-      const otherWolves = aliveWolves.filter(w => w.id !== currentPlayer.id);
-      
-      let optionsToShow;
-      let maxSelections;
-
-      if (nightActions.wolfNominations.length === 0) {
-        optionsToShow = alivePlayers.filter(p => p.role !== 'werewolf');
-        maxSelections = Math.min(aliveWolves.length, optionsToShow.length);
-      } else {
-        optionsToShow = alivePlayers.filter(p => nightActions.wolfNominations.includes(p.id));
-        maxSelections = Math.min(nightActions.wolfNominations.length - 1, optionsToShow.length);
-        if (maxSelections < 1) maxSelections = 1;
-      }
-      
-      const isFinal = maxSelections <= 1;
-      const promptText = isFinal ? t('wolf_prompt_final') : t('wolf_prompt_dyn').replace('{n}', maxSelections);
-
-      actionUI = (
-        <div className="w-full">
-          {otherWolves.length > 0 && (
-            <div className="mb-6 bg-red-900/10 p-3 rounded border border-red-900/30 text-center">
-              <p className="font-bold text-red-900">{t('other_wolves')}</p>
-              <div className="flex justify-center gap-4 mt-2">
-                {otherWolves.map(w => <span key={w.id} className="font-bold flex items-center gap-1"><span className="text-2xl">{w.avatar}</span> {w.name}</span>)}
-              </div>
-            </div>
-          )}
-          <h2 className="text-2xl font-bold mb-6 text-center text-red-900">{promptText}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {optionsToShow.map(p => (
-              <button key={p.id} onClick={() => handleTargetToggle(p.id, maxSelections)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-red-900 text-[#f4e4bc] border-red-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400'}`}>
-                <span className="text-4xl">{p.avatar}</span>
-                <span className="font-bold">{p.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    } else if (currentPlayer.role === 'seer') {
-      roleTitle = t('role_seer');
-      actionUI = (
-        <div className="w-full">
-          <h2 className="text-2xl font-bold mb-6 text-center text-indigo-900">{t('seer_prompt')}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {alivePlayers.map(p => (
-              <button key={p.id} onClick={() => handleTargetToggle(p.id, 1)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-indigo-900 text-[#f4e4bc] border-indigo-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400'}`}>
-                <span className="text-4xl">{p.avatar}</span>
-                <span className="font-bold">{p.name}</span>
-                {selectedTargets.includes(p.id) && (
-                  <span className="mt-2 text-xs uppercase bg-white text-indigo-900 px-2 py-1 rounded font-bold border border-indigo-200">
-                    {p.role === 'werewolf' ? 'WEREWOLF' : 'VILLAGER'}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+    if (gameState === 'INIT') {
+      return (
+        <div 
+          onClick={() => { playSound('HOWL'); setGameState('TITLE'); }} 
+          className="min-h-screen bg-black flex flex-col items-center justify-center text-stone-500 font-serif cursor-pointer"
+        >
+          <Moon size={60} className="mb-6 opacity-30 animate-pulse" />
+          <p className="text-2xl tracking-widest uppercase animate-pulse">Tap to Start</p>
         </div>
       );
     }
 
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full">
-          <div className="w-full text-center mb-6 pb-4 border-b-2 border-stone-400">
-            <h1 className="text-3xl font-bold uppercase tracking-widest">{roleTitle}</h1>
+    if (gameState === 'TITLE') {
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center justify-center text-stone-900 w-full h-full text-center">
+            <Moon size={80} className="text-stone-800 mb-6 opacity-80" />
+            <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-widest drop-shadow-sm uppercase">{t('tutorial_title')}</h1>
+            <p className="text-xl md:text-2xl font-bold mb-16 text-red-900 italic max-w-md leading-relaxed">
+              "{t('subtitle')}"
+            </p>
+            <button onClick={() => setGameState('TUTORIAL')} className="mt-4 px-12 py-5 bg-red-900 text-[#f4e4bc] text-2xl md:text-3xl font-bold rounded shadow-lg hover:bg-red-800 transition flex items-center justify-center gap-2 w-full md:w-auto">
+              {t('enter')} <ChevronRight size={32} />
+            </button>
+            
+            <button onClick={() => setLang(lang === 'en' ? 'jp' : 'en')} className="mt-12 text-stone-500 font-bold hover:text-stone-800 transition underline decoration-2 underline-offset-4">
+              {lang === 'en' ? '日本語でプレイする' : 'Play in English'}
+            </button>
           </div>
-          <div className="flex-1 w-full flex items-center justify-center overflow-y-auto">
-            {actionUI}
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'TUTORIAL') {
+      const renderSplit = (text) => {
+        const parts = text.split(/:\s|：/);
+        return parts.length > 1 ? <><strong className="font-bold text-stone-900">{parts[0]}: </strong>{parts[1]}</> : text;
+      };
+
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full max-h-full">
+            <h1 className="text-4xl md:text-5xl font-bold text-center mb-6 tracking-widest border-b-2 border-stone-400 pb-4 w-full flex-shrink-0">{t('tutorial_title')}</h1>
+            
+            <div className="space-y-6 text-base md:text-lg leading-relaxed text-left font-medium w-full max-w-lg overflow-y-auto pr-2 pb-4 hide-scrollbar flex-1">
+              <p className="text-center italic text-stone-700 bg-stone-800/5 p-3 rounded border border-stone-400/20">{t('tutorial_1')}</p>
+              
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_roles_title')}</h2>
+                <ul className="space-y-3">
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🧑</span> <span>{renderSplit(t('tut_role_villager'))}</span></li>
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🐺</span> <span>{renderSplit(t('tut_role_werewolf'))}</span></li>
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🔮</span> <span>{renderSplit(t('tut_role_seer'))}</span></li>
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">👁️</span> <span>{renderSplit(t('tut_role_watchman'))}</span></li>
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_phases_title')}</h2>
+                <ul className="space-y-3">
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🌙</span> <span>{renderSplit(t('tut_phase_night'))}</span></li>
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">☀️</span> <span>{renderSplit(t('tut_phase_day'))}</span></li>
+                </ul>
+              </div>
+
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold mb-3 text-red-900 border-b border-stone-400/50 pb-1">{t('tut_win_title')}</h2>
+                <ul className="space-y-3">
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🛡️</span> <span>{renderSplit(t('tut_win_villagers'))}</span></li>
+                  <li className="flex gap-3"><span className="text-2xl drop-shadow-sm flex-shrink-0">🐺</span> <span>{renderSplit(t('tut_win_werewolves'))}</span></li>
+                </ul>
+              </div>
+            </div>
+            
+            <button onClick={() => setGameState('SETUP')} className="mt-6 w-full max-w-sm py-4 bg-stone-800 text-[#f4e4bc] text-xl md:text-2xl font-bold rounded shadow-lg hover:bg-stone-700 transition flex items-center justify-center gap-2 flex-shrink-0">
+              {t('enter_village')} <ChevronRight />
+            </button>
           </div>
-          <div className="h-20 w-full flex items-center justify-center mt-6">
-            {selectedTargets.length > 0 && (
-              <button onClick={nextNightTurn} className="w-full md:w-auto px-12 py-4 bg-stone-900 text-[#f4e4bc] text-xl font-bold rounded shadow-lg flex justify-center items-center gap-2 hover:bg-stone-800">
-                {t('next')} <Check size={24} />
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'SETUP') {
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          {renderDashboard()}
+          <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
+            <h1 className="text-4xl font-bold mb-8 text-center border-b-2 border-stone-400 pb-4">{t('setup_title')}</h1>
+            
+            {/* New Class Selector and Load Button */}
+            <div className="flex gap-2 mb-6 w-full">
+              <select 
+                value={selectedTab} 
+                onChange={(e) => setSelectedTab(e.target.value)}
+                className="p-3 bg-[#fcf5e3] border-2 border-stone-400 rounded text-lg font-bold outline-none flex-1 font-sans focus:border-stone-800"
+              >
+                <option value="Roster">Default Roster</option>
+                <option value="Class 1-A">Class 1-A</option>
+                <option value="Class 1-B">Class 1-B</option>
+                <option value="Class 2-A">Class 2-A</option>
+              </select>
+              
+              <button 
+                onClick={() => fetchRoster()}
+                disabled={isLoadingRoster}
+                className="w-auto px-6 py-3 bg-indigo-900 text-[#f4e4bc] text-lg font-bold rounded shadow flex items-center justify-center gap-2 hover:bg-indigo-800 disabled:bg-stone-500 transition"
+              >
+                {isLoadingRoster ? <Loader2 className="animate-spin" /> : <Download />}
+                {isLoadingRoster ? "..." : "Load"}
               </button>
-            )}
-          </div>
-        </div>
-      </ScrollContainer>
-    );
-  }
+            </div>
 
-  if (gameState === 'MORNING_TRANSITION') {
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
-          <Sun size={80} className="text-amber-500 mb-6 animate-[spin_20s_linear_infinite]" />
-          <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('morning_title')}</h1>
-          <p className="text-2xl font-bold mb-12 max-w-sm">{t('morning_desc')}</p>
-          <button onClick={() => setGameState('DAY_REVEAL')} className="px-12 py-5 bg-amber-700 text-white text-2xl font-bold rounded shadow-lg hover:bg-amber-600">
-            {t('gather_btn')}
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
+            <div className="mb-4 bg-stone-800/10 p-3 rounded-xl border border-stone-400/30 overflow-x-auto whitespace-nowrap hide-scrollbar flex gap-2">
+               {AVATARS.map(avatar => (
+                 <button 
+                   key={avatar} 
+                   onClick={() => setSelectedAvatar(avatar)}
+                   className={`text-4xl p-2 rounded-lg transition-all ${selectedAvatar === avatar ? 'bg-stone-800 scale-110 shadow-md' : 'hover:bg-stone-800/20 opacity-70'}`}
+                 >
+                   {avatar}
+                 </button>
+               ))}
+            </div>
 
-  if (gameState === 'DAY_REVEAL') {
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
-          <Sun size={80} className="text-amber-600 mb-6 animate-[spin_20s_linear_infinite]" />
-          <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('day_phase')}</h1>
-          
-          <div className="bg-[#fcf5e3] p-8 rounded shadow-inner max-w-lg w-full mb-12 border-2 border-stone-400">
-            {lastKilled ? (
-              <>
-                <Skull size={48} className="text-red-800 mx-auto mb-4" />
-                <h2 className="text-2xl text-stone-600 mb-2 font-bold">Tragedy struck the village...</h2>
-                <p className="text-4xl font-bold mt-4 flex flex-col items-center gap-4">
-                  <span className="text-6xl">{lastKilled.avatar}</span>
-                  {lastKilled.name} was eliminated.
-                </p>
-              </>
+            <form onSubmit={addPlayer} className="flex gap-2 mb-8">
+              <div className="bg-stone-800 text-white text-3xl px-4 py-2 rounded flex items-center justify-center border-2 border-stone-800">{selectedAvatar}</div>
+              <input 
+                type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)}
+                placeholder="Student Name..."
+                className="flex-1 p-4 text-xl border-2 border-stone-800 rounded bg-[#fcf5e3] focus:outline-none focus:ring-2 focus:ring-stone-500 font-sans"
+              />
+              <button type="submit" className="px-6 bg-stone-800 text-[#f4e4bc] font-bold rounded text-2xl hover:bg-stone-700">+</button>
+            </form>
+
+            <div className="flex-1 overflow-y-auto mb-8 pr-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {players.map((p) => (
+                  <div key={p.id} className="bg-[#fcf5e3] p-3 rounded shadow-sm border border-stone-400 flex items-center gap-3">
+                    <span className="text-3xl">{p.avatar}</span>
+                    <span className="font-bold text-lg">{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {players.length >= 4 ? (
+              <button onClick={assignRoles} className="w-full py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg hover:bg-red-800 transition">
+                {t('start_game')} ({players.length} Players)
+              </button>
             ) : (
-              <>
-                <Shield size={48} className="text-green-700 mx-auto mb-4" />
-                <h2 className="text-3xl font-bold">The village was safe last night!</h2>
-              </>
+              <div className="text-center text-stone-600 text-lg font-bold border-2 border-dashed border-stone-400 py-5 rounded">
+                Need at least 4 players (Recommend 6+)
+              </div>
             )}
           </div>
+        </ScrollContainer>
+      );
+    }
 
-          <button onClick={() => setGameState('DAY_DEBATE')} className="px-12 py-5 bg-amber-700 text-white text-2xl font-bold rounded shadow-lg hover:bg-amber-600">
-            Begin Debate
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
+    const currentPlayer = players[currentPlayerIndex];
 
-  if (gameState === 'DAY_DEBATE') {
-    const alivePlayers = players.filter(p => p.isAlive);
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        {renderDashboard()}
-        <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
-          <h1 className="text-3xl font-bold text-center mb-6 border-b-2 border-stone-400 pb-4">{t('debate_title')}</h1>
-
-          <div className="bg-stone-800 text-[#f4e4bc] p-5 rounded shadow-lg mb-6 relative overflow-hidden font-sans">
-            <div className="absolute top-0 right-0 p-4 opacity-10"><Settings size={80} /></div>
-            <h2 className="text-lg font-bold text-amber-500 mb-3 uppercase tracking-wider">Useful English Phrases</h2>
-            <div className="space-y-3">
-              <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
-                <p className="text-xl font-bold">"I suspect <span className="text-amber-400">[Name]</span> because..."</p>
-              </div>
-              <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
-                <p className="text-lg">"I agree with <span className="text-amber-400">[Name]</span>." / "I disagree."</p>
-              </div>
-              <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
-                <p className="text-lg">"I am not the Werewolf because..."</p>
-              </div>
-            </div>
+    if (gameState === 'NIGHT_PASS') {
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          {renderDashboard()}
+          <div className="flex-1 flex flex-col items-center justify-center text-stone-900 text-center" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
+            <Moon size={64} className="text-stone-700 mb-8 opacity-60" />
+            <h2 className="text-2xl text-stone-600 mb-2 font-bold uppercase tracking-widest">{t('night_phase')}</h2>
+            <h1 className="text-4xl md:text-5xl font-bold mb-12 leading-tight">
+              {t('pass_device')} <br/><br/>
+              <span className="bg-stone-800 text-[#f4e4bc] px-6 py-3 rounded-lg inline-flex items-center gap-4">
+                <span className="text-5xl">{currentPlayer.avatar}</span>
+                {currentPlayer.name}
+              </span>
+            </h1>
+            <button onClick={() => setGameState('NIGHT_ACTION')} className="px-12 py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg transition hover:bg-red-800">
+              {t('im_ready')}
+            </button>
           </div>
+        </ScrollContainer>
+      );
+    }
 
-          <div className="flex-1 overflow-y-auto">
-            <h3 className="text-md font-bold text-stone-500 mb-3 uppercase tracking-widest text-center">Alive Players</h3>
-            <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-              {alivePlayers.map(p => (
-                <div key={p.id} className="bg-[#fcf5e3] py-2 px-1 rounded shadow-sm border border-stone-400 flex flex-col items-center justify-center">
-                  <span className="text-3xl mb-1">{p.avatar}</span>
-                  <span className="font-bold text-sm truncate w-full text-center">{p.name}</span>
+    if (gameState === 'NIGHT_ACTION') {
+      const alivePlayers = players.filter(p => p.isAlive && p.id !== currentPlayer.id);
+      let actionUI = null;
+      let roleTitle = '';
+
+      if (currentPlayer.role === 'villager') {
+        roleTitle = t('role_villager');
+        actionUI = (
+          <div className="space-y-4 w-full">
+            <h2 className="text-2xl font-bold mb-6 text-center">{t('decoy_prompt')}</h2>
+            {[t('decoy_1'), t('decoy_2'), t('decoy_3')].map((task, i) => (
+              <button key={i} onClick={() => handleTargetToggle(`done_${i}`)} className={`w-full p-4 rounded text-xl font-bold border-2 transition ${selectedTargets.includes(`done_${i}`) ? 'bg-stone-800 text-[#f4e4bc] border-stone-900' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
+                {task}
+              </button>
+            ))}
+          </div>
+        );
+      } else if (currentPlayer.role === 'watchman') {
+        roleTitle = t('role_watchman');
+        actionUI = (
+          <div className="text-center w-full">
+            <Eye size={64} className="mx-auto text-stone-800 mb-6" />
+            <h2 className="text-2xl font-bold mb-8 leading-relaxed">{t('watchman_prompt')}</h2>
+            <button onClick={() => handleTargetToggle('done')} className={`w-full p-4 rounded text-xl font-bold border-2 transition ${selectedTargets.includes('done') ? 'bg-stone-800 text-[#f4e4bc] border-stone-900' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
+              I have observed
+            </button>
+          </div>
+        );
+      } else if (currentPlayer.role === 'werewolf') {
+        roleTitle = t('role_werewolf');
+        const aliveWolves = players.filter(p => p.role === 'werewolf' && p.isAlive);
+        const otherWolves = aliveWolves.filter(w => w.id !== currentPlayer.id);
+        
+        let optionsToShow;
+        let maxSelections;
+
+        if (nightActions.wolfNominations.length === 0) {
+          optionsToShow = alivePlayers.filter(p => p.role !== 'werewolf');
+          maxSelections = Math.min(aliveWolves.length, optionsToShow.length);
+        } else {
+          optionsToShow = alivePlayers.filter(p => nightActions.wolfNominations.includes(p.id));
+          maxSelections = Math.min(nightActions.wolfNominations.length - 1, optionsToShow.length);
+          if (maxSelections < 1) maxSelections = 1;
+        }
+        
+        const isFinal = maxSelections <= 1;
+        const promptText = isFinal ? t('wolf_prompt_final') : t('wolf_prompt_dyn').replace('{n}', maxSelections);
+
+        actionUI = (
+          <div className="w-full">
+            {otherWolves.length > 0 && (
+              <div className="mb-6 bg-red-900/10 p-3 rounded border border-red-900/30 text-center">
+                <p className="font-bold text-red-900">{t('other_wolves')}</p>
+                <div className="flex justify-center gap-4 mt-2">
+                  {otherWolves.map(w => <span key={w.id} className="font-bold flex items-center gap-1"><span className="text-2xl">{w.avatar}</span> {w.name}</span>)}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <button onClick={() => setGameState('DAY_VOTE')} className="mt-6 w-full py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg flex justify-center items-center gap-2 hover:bg-red-800">
-            {t('vote_btn')} <ChevronRight />
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  if (gameState === 'DAY_VOTE') {
-    const alivePlayers = players.filter(p => p.isAlive);
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex flex-col h-full text-stone-900">
-          <h1 className="text-3xl font-bold text-center mb-2">{t('vote_prompt')}</h1>
-          <p className="text-center text-stone-500 mb-6 italic">Discuss as a group, then log the final decision here.</p>
-          
-          <div className="flex-1 overflow-y-auto mb-6">
+              </div>
+            )}
+            <h2 className="text-2xl font-bold mb-6 text-center text-red-900">{promptText}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {alivePlayers.map(p => (
-                <button key={p.id} onClick={() => handleTargetToggle(p.id, 1)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-red-900 text-[#f4e4bc] border-red-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
+              {optionsToShow.map(p => (
+                <button key={p.id} onClick={() => handleTargetToggle(p.id, maxSelections)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-red-900 text-[#f4e4bc] border-red-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400'}`}>
                   <span className="text-4xl">{p.avatar}</span>
                   <span className="font-bold">{p.name}</span>
                 </button>
               ))}
             </div>
           </div>
-
-          <div className="bg-stone-800 p-5 rounded border-2 border-stone-900 mb-6 text-[#f4e4bc] font-sans">
-            <p className="text-center text-sm text-stone-400 uppercase tracking-widest mb-2">Read Aloud to Confirm:</p>
-            <p className="text-center text-xl font-bold">
-              "I vote that we eliminate <span className="text-amber-500">{selectedTargets.length > 0 ? players.find(p=>p.id === selectedTargets[0]).name : '_____'}</span> from the village."
-            </p>
+        );
+      } else if (currentPlayer.role === 'seer') {
+        roleTitle = t('role_seer');
+        actionUI = (
+          <div className="w-full">
+            <h2 className="text-2xl font-bold mb-6 text-center text-indigo-900">{t('seer_prompt')}</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {alivePlayers.map(p => (
+                <button key={p.id} onClick={() => handleTargetToggle(p.id, 1)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-indigo-900 text-[#f4e4bc] border-indigo-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400'}`}>
+                  <span className="text-4xl">{p.avatar}</span>
+                  <span className="font-bold">{p.name}</span>
+                  {selectedTargets.includes(p.id) && (
+                    <span className="mt-2 text-xs uppercase bg-white text-indigo-900 px-2 py-1 rounded font-bold border border-indigo-200">
+                      {p.role === 'werewolf' ? 'WEREWOLF' : 'VILLAGER'}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
+        );
+      }
 
-          <button disabled={selectedTargets.length === 0} onClick={processDayVote} className={`w-full py-5 text-2xl font-bold rounded shadow-lg transition ${selectedTargets.length > 0 ? 'bg-red-900 text-[#f4e4bc] hover:bg-red-800' : 'bg-stone-400 text-stone-600 cursor-not-allowed'}`}>
-            {t('confirm_vote')}
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center text-stone-900 w-full h-full">
+            <div className="w-full text-center mb-6 pb-4 border-b-2 border-stone-400">
+              <h1 className="text-3xl font-bold uppercase tracking-widest">{roleTitle}</h1>
+            </div>
+            <div className="flex-1 w-full flex items-center justify-center overflow-y-auto">
+              {actionUI}
+            </div>
+            <div className="h-20 w-full flex items-center justify-center mt-6">
+              {selectedTargets.length > 0 && (
+                <button onClick={nextNightTurn} className="w-full md:w-auto px-12 py-4 bg-stone-900 text-[#f4e4bc] text-xl font-bold rounded shadow-lg flex justify-center items-center gap-2 hover:bg-stone-800">
+                  {t('next')} <Check size={24} />
+                </button>
+              )}
+            </div>
+          </div>
+        </ScrollContainer>
+      );
+    }
 
-  if (gameState === 'VOTE_RESULT') {
-    const isWolf = lastKilled && lastKilled.role === 'werewolf';
-    return (
-      <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
-        <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
-          <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('vote_result_title')}</h1>
-          
-          <div className="bg-[#fcf5e3] p-8 rounded shadow-inner max-w-lg w-full mb-12 border-2 border-stone-400 flex flex-col items-center">
-            <span className="text-8xl mb-6">{lastKilled.avatar}</span>
-            <p className="text-3xl font-bold mb-4">{lastKilled.name}</p>
+    if (gameState === 'MORNING_TRANSITION') {
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
+            <Sun size={80} className="text-amber-500 mb-6 animate-[spin_20s_linear_infinite]" />
+            <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('morning_title')}</h1>
+            <p className="text-2xl font-bold mb-12 max-w-sm">{t('morning_desc')}</p>
+            <button onClick={() => setGameState('DAY_REVEAL')} className="px-12 py-5 bg-amber-700 text-white text-2xl font-bold rounded shadow-lg hover:bg-amber-600">
+              {t('gather_btn')}
+            </button>
+          </div>
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'DAY_REVEAL') {
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
+            <Sun size={80} className="text-amber-600 mb-6 animate-[spin_20s_linear_infinite]" />
+            <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('day_phase')}</h1>
             
-            {isWolf ? (
-              <div className="text-green-700 flex flex-col items-center">
-                <Shield size={48} className="mb-4" />
-                <p className="text-2xl font-bold">{t('vote_werewolf')}</p>
-              </div>
-            ) : (
-              <div className="text-red-800 flex flex-col items-center">
-                <Skull size={48} className="mb-4" />
-                <p className="text-2xl font-bold">{t('vote_innocent')}</p>
-              </div>
-            )}
-          </div>
+            <div className="bg-[#fcf5e3] p-8 rounded shadow-inner max-w-lg w-full mb-12 border-2 border-stone-400">
+              {lastKilled ? (
+                <>
+                  <Skull size={48} className="text-red-800 mx-auto mb-4" />
+                  <h2 className="text-2xl text-stone-600 mb-2 font-bold">Tragedy struck the village...</h2>
+                  <p className="text-4xl font-bold mt-4 flex flex-col items-center gap-4">
+                    <span className="text-6xl">{lastKilled.avatar}</span>
+                    {lastKilled.name} was eliminated.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Shield size={48} className="text-green-700 mx-auto mb-4" />
+                  <h2 className="text-3xl font-bold">The village was safe last night!</h2>
+                </>
+              )}
+            </div>
 
-          <button onClick={() => checkWinCondition(players, 'NIGHT_TRANSITION')} className="px-12 py-5 bg-stone-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg hover:bg-stone-800">
-            {t('next')}
-          </button>
-        </div>
-      </ScrollContainer>
-    );
-  }
-
-  if (gameState === 'VICTORY') {
-    const isVillagerWin = winner === 'VILLAGERS';
-    
-    return (
-      <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-serif ${isVillagerWin ? 'bg-sky-200' : 'bg-stone-950'}`}>
-        
-        {/* Dynamic Backgrounds */}
-        {isVillagerWin ? (
-          <div className="absolute inset-0 pointer-events-none">
-             <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-300 rounded-full blur-[10px] shadow-[0_0_100px_rgba(253,224,71,1)]"></div>
-             <div className="absolute bottom-0 w-full h-1/3 bg-green-500/30 blur-[50px]"></div>
+            <button onClick={() => setGameState('DAY_DEBATE')} className="px-12 py-5 bg-amber-700 text-white text-2xl font-bold rounded shadow-lg hover:bg-amber-600">
+              Begin Debate
+            </button>
           </div>
-        ) : (
-          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-             <div className="absolute top-20 w-64 h-64 bg-red-700 rounded-full blur-[20px] shadow-[0_0_150px_rgba(185,28,28,0.8)] animate-pulse"></div>
-             <div className="absolute bottom-0 w-full h-1/2 bg-black"></div>
-          </div>
-        )}
+        </ScrollContainer>
+      );
+    }
 
-        {/* Victory Card */}
-        <div className={`relative z-10 w-full max-w-2xl p-8 md:p-12 rounded-xl shadow-2xl flex flex-col items-center text-center border-4 ${isVillagerWin ? 'bg-white/90 border-yellow-400 text-stone-900' : 'bg-black/80 border-red-900 text-white'}`}>
-          
-          {isVillagerWin ? (
-            <>
-              <Sun size={100} className="text-yellow-500 mb-6 animate-[spin_20s_linear_infinite]" />
-              <h1 className="text-5xl md:text-6xl font-extrabold text-green-700 mb-4 tracking-tight drop-shadow-sm">VILLAGE SAVED!</h1>
-              <p className="text-2xl font-bold mb-8 text-stone-600">The beautiful summer day has arrived.</p>
-              <div className="flex justify-center gap-4 flex-wrap mb-8">
-                 {players.filter(p => p.role !== 'werewolf').map(p => (
-                   <span key={p.id} className="text-5xl drop-shadow-md" title={p.name}>{p.avatar}</span>
-                 ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="relative mb-6">
-                <Moon size={120} className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,1)]" />
-                <div className="absolute inset-0 flex items-center justify-center translate-y-4">
-                  <span className="text-6xl grayscale contrast-200 brightness-0 drop-shadow-lg">🐺</span>
+    if (gameState === 'DAY_DEBATE') {
+      const alivePlayers = players.filter(p => p.isAlive);
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          {renderDashboard()}
+          <div className="flex flex-col h-full text-stone-900" onPointerDown={handleTouchStart} onPointerUp={handleTouchEnd} onPointerLeave={handleTouchEnd}>
+            <h1 className="text-3xl font-bold text-center mb-6 border-b-2 border-stone-400 pb-4">{t('debate_title')}</h1>
+
+            <div className="bg-stone-800 text-[#f4e4bc] p-5 rounded shadow-lg mb-6 relative overflow-hidden font-sans">
+              <div className="absolute top-0 right-0 p-4 opacity-10"><Settings size={80} /></div>
+              <h2 className="text-lg font-bold text-amber-500 mb-3 uppercase tracking-wider">Useful English Phrases</h2>
+              <div className="space-y-3">
+                <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
+                  <p className="text-xl font-bold">"I suspect <span className="text-amber-400">[Name]</span> because..."</p>
+                </div>
+                <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
+                  <p className="text-lg">"I agree with <span className="text-amber-400">[Name]</span>." / "I disagree."</p>
+                </div>
+                <div className="bg-stone-900/50 p-3 rounded border border-stone-700">
+                  <p className="text-lg">"I am not the Werewolf because..."</p>
                 </div>
               </div>
-              <h1 className="text-5xl md:text-6xl font-extrabold text-red-600 mb-4 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">ETERNAL NIGHT</h1>
-              <p className="text-2xl font-bold mb-8 text-stone-400">The wolves rule the shadows.</p>
-              <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-950/40 p-6 rounded-xl border border-red-900/50 w-full">
-                 <span className="text-red-500 font-bold w-full mb-4 uppercase tracking-widest text-sm">The Wolf Pack:</span>
-                 {players.filter(p => p.role === 'werewolf').map(p => (
-                   <div key={p.id} className="flex flex-col items-center">
-                      <span className="text-6xl drop-shadow-lg">{p.avatar}</span>
-                      <span className="text-stone-300 font-bold mt-3 text-lg">{p.name}</span>
-                   </div>
-                 ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <h3 className="text-md font-bold text-stone-500 mb-3 uppercase tracking-widest text-center">Alive Players</h3>
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                {alivePlayers.map(p => (
+                  <div key={p.id} className="bg-[#fcf5e3] py-2 px-1 rounded shadow-sm border border-stone-400 flex flex-col items-center justify-center">
+                    <span className="text-3xl mb-1">{p.avatar}</span>
+                    <span className="font-bold text-sm truncate w-full text-center">{p.name}</span>
+                  </div>
+                ))}
               </div>
-            </>
+            </div>
+
+            <button onClick={() => setGameState('DAY_VOTE')} className="mt-6 w-full py-5 bg-red-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg flex justify-center items-center gap-2 hover:bg-red-800">
+              {t('vote_btn')} <ChevronRight />
+            </button>
+          </div>
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'DAY_VOTE') {
+      const alivePlayers = players.filter(p => p.isAlive);
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex flex-col h-full text-stone-900">
+            <h1 className="text-3xl font-bold text-center mb-2">{t('vote_prompt')}</h1>
+            <p className="text-center text-stone-500 mb-6 italic">Discuss as a group, then log the final decision here.</p>
+            
+            <div className="flex-1 overflow-y-auto mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {alivePlayers.map(p => (
+                  <button key={p.id} onClick={() => handleTargetToggle(p.id, 1)} className={`p-3 rounded flex flex-col items-center gap-2 border-2 transition ${selectedTargets.includes(p.id) ? 'bg-red-900 text-[#f4e4bc] border-red-950 shadow-inner' : 'bg-[#fcf5e3] border-stone-400 hover:bg-stone-300'}`}>
+                    <span className="text-4xl">{p.avatar}</span>
+                    <span className="font-bold">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-stone-800 p-5 rounded border-2 border-stone-900 mb-6 text-[#f4e4bc] font-sans">
+              <p className="text-center text-sm text-stone-400 uppercase tracking-widest mb-2">Read Aloud to Confirm:</p>
+              <p className="text-center text-xl font-bold">
+                "I vote that we eliminate <span className="text-amber-500">{selectedTargets.length > 0 ? players.find(p=>p.id === selectedTargets[0]).name : '_____'}</span> from the village."
+              </p>
+            </div>
+
+            <button disabled={selectedTargets.length === 0} onClick={processDayVote} className={`w-full py-5 text-2xl font-bold rounded shadow-lg transition ${selectedTargets.length > 0 ? 'bg-red-900 text-[#f4e4bc] hover:bg-red-800' : 'bg-stone-400 text-stone-600 cursor-not-allowed'}`}>
+              {t('confirm_vote')}
+            </button>
+          </div>
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'VOTE_RESULT') {
+      const isWolf = lastKilled && lastKilled.role === 'werewolf';
+      return (
+        <ScrollContainer phase={gameState} lang={lang} setLang={setLang}>
+          <div className="flex-1 flex flex-col items-center justify-center text-center text-stone-900">
+            <h1 className="text-5xl font-bold mb-10 tracking-widest">{t('vote_result_title')}</h1>
+            
+            <div className="bg-[#fcf5e3] p-8 rounded shadow-inner max-w-lg w-full mb-12 border-2 border-stone-400 flex flex-col items-center">
+              <span className="text-8xl mb-6">{lastKilled.avatar}</span>
+              <p className="text-3xl font-bold mb-4">{lastKilled.name}</p>
+              
+              {isWolf ? (
+                <div className="text-green-700 flex flex-col items-center">
+                  <Shield size={48} className="mb-4" />
+                  <p className="text-2xl font-bold">{t('vote_werewolf')}</p>
+                </div>
+              ) : (
+                <div className="text-red-800 flex flex-col items-center">
+                  <Skull size={48} className="mb-4" />
+                  <p className="text-2xl font-bold">{t('vote_innocent')}</p>
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => checkWinCondition(players, 'NIGHT_TRANSITION')} className="px-12 py-5 bg-stone-900 text-[#f4e4bc] text-2xl font-bold rounded shadow-lg hover:bg-stone-800">
+              {t('next')}
+            </button>
+          </div>
+        </ScrollContainer>
+      );
+    }
+
+    if (gameState === 'VICTORY') {
+      const isVillagerWin = winner === 'VILLAGERS';
+      
+      return (
+        <div className={`min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-serif ${isVillagerWin ? 'bg-sky-200' : 'bg-stone-950'}`}>
+          
+          {/* Dynamic Backgrounds */}
+          {isVillagerWin ? (
+            <div className="absolute inset-0 pointer-events-none">
+               <div className="absolute top-10 left-10 w-32 h-32 bg-yellow-300 rounded-full blur-[10px] shadow-[0_0_100px_rgba(253,224,71,1)]"></div>
+               <div className="absolute bottom-0 w-full h-1/3 bg-green-500/30 blur-[50px]"></div>
+            </div>
+          ) : (
+            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+               <div className="absolute top-20 w-64 h-64 bg-red-700 rounded-full blur-[20px] shadow-[0_0_150px_rgba(185,28,28,0.8)] animate-pulse"></div>
+               <div className="absolute bottom-0 w-full h-1/2 bg-black"></div>
+            </div>
           )}
 
-          <button onClick={() => { playSound('HOWL'); setPlayers([]); setOverrideWolfCount(0); setGameState('TITLE'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
-            Play Again
-          </button>
+          {/* Victory Card */}
+          <div className={`relative z-10 w-full max-w-2xl p-8 md:p-12 rounded-xl shadow-2xl flex flex-col items-center text-center border-4 ${isVillagerWin ? 'bg-white/90 border-yellow-400 text-stone-900' : 'bg-black/80 border-red-900 text-white'}`}>
+            
+            {isVillagerWin ? (
+              <>
+                <Sun size={100} className="text-yellow-500 mb-6 animate-[spin_20s_linear_infinite]" />
+                <h1 className="text-5xl md:text-6xl font-extrabold text-green-700 mb-4 tracking-tight drop-shadow-sm">VILLAGE SAVED!</h1>
+                <p className="text-2xl font-bold mb-8 text-stone-600">The beautiful summer day has arrived.</p>
+                <div className="flex justify-center gap-4 flex-wrap mb-8">
+                   {players.filter(p => p.role !== 'werewolf').map(p => (
+                     <span key={p.id} className="text-5xl drop-shadow-md" title={p.name}>{p.avatar}</span>
+                   ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="relative mb-6">
+                  <Moon size={120} className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,1)]" />
+                  <div className="absolute inset-0 flex items-center justify-center translate-y-4">
+                    <span className="text-6xl grayscale contrast-200 brightness-0 drop-shadow-lg">🐺</span>
+                  </div>
+                </div>
+                <h1 className="text-5xl md:text-6xl font-extrabold text-red-600 mb-4 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">ETERNAL NIGHT</h1>
+                <p className="text-2xl font-bold mb-8 text-stone-400">The wolves rule the shadows.</p>
+                <div className="flex justify-center gap-4 flex-wrap mb-10 bg-red-950/40 p-6 rounded-xl border border-red-900/50 w-full">
+                   <span className="text-red-500 font-bold w-full mb-4 uppercase tracking-widest text-sm">The Wolf Pack:</span>
+                   {players.filter(p => p.role === 'werewolf').map(p => (
+                     <div key={p.id} className="flex flex-col items-center">
+                        <span className="text-6xl drop-shadow-lg">{p.avatar}</span>
+                        <span className="text-stone-300 font-bold mt-3 text-lg">{p.name}</span>
+                     </div>
+                   ))}
+                </div>
+              </>
+            )}
+
+            <button onClick={() => { playSound('HOWL'); setPlayers([]); setOverrideWolfCount(0); setGameState('TITLE'); }} className={`px-12 py-5 font-bold rounded shadow-lg transition text-xl mt-4 w-full md:w-auto ${isVillagerWin ? 'bg-green-600 text-white hover:bg-green-500' : 'bg-red-900 text-white hover:bg-red-800'}`}>
+              Play Again
+            </button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
-  }; // End of renderContent()
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+  }; // End renderContent()
 
-  // Main Return wrapped with hidden audio elements
   return (
     <>
       <audio ref={howlAudioRef} src="https://www.myinstants.com/media/sounds/wolf-howling.mp3" preload="auto" />
