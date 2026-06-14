@@ -126,6 +126,22 @@ export default function App() {
   const [overrideWolfCount, setOverrideWolfCount] = useState(0);
   const pressTimer = useRef(null);
 
+  // --- SOUND EFFECTS ---
+  useEffect(() => {
+    if (gameState === 'VICTORY') {
+      const soundUrl = winner === 'VILLAGERS' 
+        ? "https://actions.google.com/sounds/v1/cartoon/cartoon_success_fanfare.ogg" 
+        : "https://actions.google.com/sounds/v1/animals/wolf_howl.ogg";
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.7; // 70% volume
+      audio.play().catch(e => console.log("Audio prevented by browser:", e));
+    } else if (gameState === 'TITLE') {
+      const audio = new Audio("https://actions.google.com/sounds/v1/animals/wolf_howl.ogg");
+      audio.volume = 0.5; // 50% volume for the spooky intro
+      audio.play().catch(e => console.log("Audio prevented by browser:", e));
+    }
+  }, [gameState, winner]);
+
   // --- HELPER FUNCTIONS ---
   const t = (key) => TEXT[key][lang] || TEXT[key]['en'];
 
